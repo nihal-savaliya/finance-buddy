@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Finance Buddy — Smart Expense Assistant</title>
+  <meta name="description" content="AI-powered personal finance assistant. Track expenses, chat with AI, set savings goals, and parse SMS transactions — all in one beautiful dashboard." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ═══════════════ AUTH OVERLAY ═══════════════ -->
+  <div id="auth-overlay" class="auth-overlay">
+    <div class="auth-card card">
+      <div class="logo-wrap" style="justify-content:center; margin-bottom:20px;">
+        <svg class="logo-icon" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="url(#lg2)" stroke-width="3"/><path d="M14 22l4 4 8-10" stroke="url(#lg2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="lg2" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#2dd4bf"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs></svg>
+        <h1 class="logo-title" style="font-size:24px;">Finance Buddy</h1>
+      </div>
+      <h2 id="auth-title" style="text-align:center; margin-bottom:20px;">Welcome Back</h2>
+      <form id="auth-form" autocomplete="off">
+        <label class="form-label">Username
+          <input type="text" id="auth-username" class="text-input" required />
+        </label>
+        <label class="form-label">Password
+          <input type="password" id="auth-password" class="text-input" required />
+        </label>
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary full-w" style="margin-top:10px;">Log In</button>
+      </form>
+      <div style="text-align:center; margin-top:15px; font-size:14px; color:var(--text-dim);">
+        <span id="auth-switch-text">Don't have an account?</span> 
+        <a href="#" id="auth-switch-link" style="color:var(--accent-teal); text-decoration:none; font-weight:600;">Sign Up</a>
+      </div>
+      <div id="auth-error" style="color:var(--accent-red); margin-top:10px; text-align:center; font-size:14px; display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════ -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loader-content">
+      <div class="loader-ring"></div>
+      <span class="loader-text">AI Finance Buddy</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TOAST CONTAINER ═══════════════ -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ═══════════════ SIDEBAR ═══════════════ -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-wrap">
+        <svg class="logo-icon" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="url(#lg)" stroke-width="3"/><path d="M14 22l4 4 8-10" stroke="url(#lg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#2dd4bf"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs></svg>
+        <h1 class="logo-title">Finance Buddy</h1>
+      </div>
+      <button id="sidebar-close" class="sidebar-close" aria-label="Close menu">&times;</button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-page="chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <span>Chat Assistant</span>
+      </a>
+      <a href="#" class="nav-item" data-page="transactions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <span>Transactions</span>
+      </a>
+      <a href="#" class="nav-item" data-page="goals">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        <span>Goals</span>
+      </a>
+      <a href="#" class="nav-item" data-page="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="avatar">NR</div>
+        <div class="user-info">
+          <span class="user-name">Nihaal R.</span>
+          <span class="user-role">Premium Plan</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+  <main class="main-content">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <button id="hamburger" class="hamburger" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-title">
+        <h2 id="page-title">Dashboard</h2>
+        <p class="topbar-date" id="topbar-date"></p>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="notif-btn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="notif-dot"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ════════ PAGE: DASHBOARD ════════ -->
+    <section id="page-dashboard" class="page active">
+      <div class="dashboard-grid">
+        <!-- Financial Health Score -->
+        <div class="card score-card fade-up">
+          <h3 class="card-label">Financial Health Score</h3>
+          <div class="score-ring-wrap">
+            <svg class="score-ring" viewBox="0 0 160 160">
+              <circle class="ring-bg" cx="80" cy="80" r="70"/>
+              <circle class="ring-fill" id="score-ring-fill" cx="80" cy="80" r="70"/>
+            </svg>
+            <div class="score-value" id="score-value">0</div>
+          </div>
+          <p class="score-label" id="score-label">Calculating…</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="card summary-card fade-up" style="--delay:.1s">
+          <div class="summary-icon balance-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <div class="summary-info">
+            <span class="summary-title">Total Balance</span>
+            <span class="summary-value" id="total-balance">₹0</span>
+            <span class="summary-trend neutral" id="trend-balance">— No data</span>
+          </div>
+        </div>
+
+        <div class="card summary-card fade-up" style="--delay:.2s">
+          <div class="summary-icon spending-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <div class="summary-info">
+            <span class="summary-title">Monthly Spending</span>
+            <span class="summary-value" id="monthly-spending">₹0</span>
+            <span class="summary-trend neutral" id="trend-spending">— No data</span>
+          </div>
+        </div>
+
+        <div class="card summary-card fade-up" style="--delay:.3s">
+          <div class="summary-icon savings-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+          </div>
+          <div class="summary-info">
+            <span class="summary-title">Savings</span>
+            <span class="summary-value" id="total-savings">₹0</span>
+            <span class="summary-trend neutral" id="trend-savings">— No data</span>
+          </div>
+        </div>
+
+        <div class="card summary-card fade-up" style="--delay:.4s">
+          <div class="summary-icon goals-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          </div>
+          <div class="summary-info">
+            <span class="summary-title">Active Goals</span>
+            <span class="summary-value" id="active-goals">0</span>
+            <span class="summary-trend neutral" id="trend-goals">— No goals set</span>
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="card transactions-card fade-up" style="--delay:.45s">
+          <div class="card-header">
+            <h3>Recent Transactions</h3>
+            <a href="#" class="view-all" data-page="transactions">View All →</a>
+          </div>
+          <div class="table-wrap">
+            <table class="txn-table">
+              <thead>
+                <tr><th>Merchant</th><th>Amount</th><th>Category</th><th>Date</th></tr>
+              </thead>
+              <tbody id="txn-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Spending Chart -->
+        <div class="card chart-card fade-up" style="--delay:.5s">
+          <div class="card-header">
+            <h3>Spending by Category</h3>
+          </div>
+          <div class="bar-chart" id="bar-chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ PAGE: CHAT ════════ -->
+    <section id="page-chat" class="page">
+      <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+          <!-- messages rendered by JS -->
+        </div>
+        <form class="chat-input-bar" id="chat-form" autocomplete="off">
+          <input type="text" id="chat-input" placeholder="Ask your AI Finance Buddy…" />
+          <button type="submit" class="send-btn" aria-label="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ════════ PAGE: TRANSACTIONS ════════ -->
+    <section id="page-transactions" class="page">
+      <div class="txn-page-grid">
+        <!-- Full transaction list -->
+        <div class="card fade-up">
+          <div class="card-header">
+            <h3>All Transactions</h3>
+          </div>
+          <div class="table-wrap">
+            <table class="txn-table full">
+              <thead>
+                <tr><th>Merchant</th><th>Amount</th><th>Category</th><th>Date</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="txn-body-full"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SMS Parser -->
+        <div class="card sms-card fade-up" style="--delay:.15s">
+          <div class="card-header">
+            <h3>Add via SMS</h3>
+          </div>
+          <p class="sms-desc">Paste a bank SMS to auto-extract transaction details.</p>
+          <textarea id="sms-input" class="sms-textarea" rows="4" placeholder='e.g. "INR 500 spent at Amazon on 18-Mar"'></textarea>
+          <button class="btn btn-primary" id="parse-sms-btn">Parse Transaction</button>
+          <div class="sms-result" id="sms-result"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ PAGE: GOALS ════════ -->
+    <section id="page-goals" class="page">
+      <div class="goals-header">
+        <h3>Savings Goals</h3>
+        <button class="btn btn-primary" id="add-goal-btn">+ Add New Goal</button>
+      </div>
+      <div class="goals-grid" id="goals-grid"></div>
+    </section>
+
+    <!-- ════════ PAGE: SETTINGS ════════ -->
+    <section id="page-settings" class="page">
+      <div class="settings-grid">
+        <div class="card fade-up">
+          <h3>Preferences</h3>
+          <div class="setting-row">
+            <span>Dark Mode</span>
+            <label class="toggle"><input type="checkbox" id="toggle-darkmode" checked /><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <span>Push Notifications</span>
+            <label class="toggle"><input type="checkbox" id="toggle-notif" checked /><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <span>Monthly Report Email</span>
+            <label class="toggle"><input type="checkbox" id="toggle-report" /><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <span>Currency</span>
+            <select class="select-input" id="select-currency"><option value="INR">INR (₹)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option></select>
+          </div>
+        </div>
+        <div class="card fade-up" style="--delay:.1s">
+          <h3>Account</h3>
+          <div class="setting-row">
+            <span>Name</span>
+            <input class="text-input" type="text" id="setting-name" value="Nihaal R." />
+          </div>
+          <div class="setting-row">
+            <span>Email</span>
+            <input class="text-input" type="email" id="setting-email" value="nihaal@example.com" />
+          </div>
+          <button class="btn btn-primary" id="save-settings-btn" style="margin-top:16px;">Save Changes</button>
+          <button class="btn btn-danger" id="logout-btn" style="margin-top:10px;">Log Out</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════════════ GOAL MODAL ═══════════════ -->
+  <div class="modal-overlay" id="goal-modal">
+    <div class="modal card">
+      <div class="modal-header">
+        <h3>Add New Goal</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form id="goal-form" autocomplete="off">
+        <label class="form-label">Goal Name
+          <input type="text" id="goal-name" class="text-input" placeholder="e.g. Vacation Fund" required />
+        </label>
+        <label class="form-label">Target Amount (₹)
+          <input type="number" id="goal-amount" class="text-input" placeholder="e.g. 50000" required min="1" />
+        </label>
+        <label class="form-label">Target Date
+          <input type="date" id="goal-deadline" class="text-input" />
+        </label>
+        <button type="submit" class="btn btn-primary full-w">Create Goal</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TRANSACTION EDIT MODAL ═══════════════ -->
+  <div class="modal-overlay" id="txn-modal">
+    <div class="modal card">
+      <div class="modal-header">
+        <h3>Edit Transaction</h3>
+        <button class="modal-close" id="txn-modal-close">&times;</button>
+      </div>
+      <form id="txn-edit-form" autocomplete="off">
+        <input type="hidden" id="txn-edit-id" />
+        <input type="hidden" id="txn-edit-index" />
+        <label class="form-label">Merchant
+          <input type="text" id="txn-edit-merchant" class="text-input" placeholder="e.g. Swiggy" required />
+        </label>
+        <label class="form-label">Amount (₹)
+          <input type="number" id="txn-edit-amount" class="text-input" placeholder="e.g. 500" required min="1" />
+        </label>
+        <label class="form-label">Type
+          <select id="txn-edit-type" class="select-input">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </label>
+        <label class="form-label">Category
+          <select id="txn-edit-category" class="select-input">
+            <option value="food">Food</option>
+            <option value="travel">Travel</option>
+            <option value="bills">Bills</option>
+            <option value="shopping">Shopping</option>
+            <option value="entertainment">Entertainment</option>
+            <option value="health">Health</option>
+            <option value="income">Income</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label class="form-label">Date
+          <input type="date" id="txn-edit-date" class="text-input" required />
+        </label>
+        <button type="submit" class="btn btn-primary full-w">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
