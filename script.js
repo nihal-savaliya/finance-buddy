@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════ */
 
 // ────────────────── Config ──────────────────────
-const API_BASE = 'http://localhost:5000';
+const API_BASE = '';
 
 // ────────────────── Auth Helper ───────────────────
 async function fetchWithAuth(url, options = {}) {
