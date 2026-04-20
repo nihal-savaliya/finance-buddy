@@ -2,23 +2,6 @@
    AI Finance Buddy — Premium Minimalist-Luxury Theme
    Glassmorphism · Soft-Elevation · Dual Themes
    ═══════════════════════════════════════════════════ */
-html, body {
-  overflow-x: hidden;
-  max-width: 100%;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-.table-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.txn-table {
-  min-width: 500px;
-}
 
 /* ─── Reset & Base ──────────────────────────────── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
