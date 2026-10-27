@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
-"scripts": {
-  "start": "node server.js"
-},
+  "scripts": {
+    "start": "node server.js",
+    "mongo": "\"C:\\Program Files\\MongoDB\\Server\\8.2\\bin\\mongod.exe\" --dbpath ./data/db",
+    "dev": "nodemon server.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

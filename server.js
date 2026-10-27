@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const Transaction = require('./models/Transaction');
 const Goal = require('./models/Goal');
@@ -19,12 +19,40 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 // --- Initialize AI Clients ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
+// Gemini conversational model (with search tool)
 const geminiModel = genAI.getGenerativeModel({
   model: "gemini-2.5-flash",
   tools: [{ googleSearch: {} }]
 });
+
+// Gemini structured JSON model (reliable fallback for Groq)
+const geminiJsonModel = genAI.getGenerativeModel({
+  model: "gemini-2.5-flash",
+  generationConfig: { responseMimeType: "application/json" }
+});
+
+// Resilient helper: tries Groq first, falls back to Gemini on any error
+async function getStructuredAiJson(prompt) {
+  if (groq && process.env.GROQ_API_KEY) {
+    try {
+      const completion = await groq.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: "llama-3.1-8b-instant",
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+      });
+      return JSON.parse(completion.choices[0].message.content);
+    } catch (err) {
+      console.warn("Groq API call failed (falling back to Gemini):", err.message);
+    }
+  }
+
+  // Fallback to Gemini
+  const result = await geminiJsonModel.generateContent(prompt);
+  return JSON.parse(result.response.text());
+}
 
 // --- Middleware ---
 app.use(cors());
@@ -36,12 +64,27 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// System status endpoint
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'ok',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
 // ══════════════════════════════════════════════════════════════════
 //                    AUTHENTICATION ROUTES
 // ══════════════════════════════════════════════════════════════════
 
 app.post('/api/auth/signup', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database is not connected. Please start MongoDB locally (start-mongo.bat) or check MONGO_URI.'
+      });
+    }
+
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -75,13 +118,20 @@ app.post('/api/auth/signup', async (req, res) => {
     console.error('Signup error:', error);
     res.status(500).json({
       success: false,
-      message: 'Signup failed'
+      message: 'Signup failed: ' + (error.message || 'Unknown error')
     });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database is not connected. Please start MongoDB locally (start-mongo.bat) or check MONGO_URI.'
+      });
+    }
+
     const { username, password } = req.body;
 
     const user = await User.findOne({ username });
@@ -115,7 +165,7 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Login failed'
+      message: 'Login failed: ' + (error.message || 'Unknown error')
     });
   }
 });
@@ -145,14 +195,20 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Protect all /api routes below this point except /api/auth
+// Protect all /api routes below this point except /api/auth and /api/status
 app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/auth')) return next();
+  if (req.path.startsWith('/auth') || req.path === '/status') return next();
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database is not connected. Please start MongoDB locally (start-mongo.bat) or check MONGO_URI.'
+    });
+  }
   verifyToken(req, res, next);
 });
 
 // ══════════════════════════════════════════════════════════════════
-//                    AI ROUTES (GROQ + GEMINI)
+//                    AI ROUTES (GROQ + GEMINI FALLBACK)
 // ══════════════════════════════════════════════════════════════════
 
 app.post('/api/sms', async (req, res) => {
@@ -173,14 +229,7 @@ RULES:
 3. Extract merchant.
 Output ONLY valid JSON matching this schema exactly: {"amount": number, "merchant": "string", "category": "string"}`;
 
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: smsPrompt }],
-      model: "llama-3.1-8b-instant",
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-    });
-
-    const parsed = JSON.parse(completion.choices[0].message.content);
+    const parsed = await getStructuredAiJson(smsPrompt);
 
     if (typeof parsed.amount !== 'number' || !parsed.merchant) {
       return res.status(400).json({
@@ -204,10 +253,10 @@ Output ONLY valid JSON matching this schema exactly: {"amount": number, "merchan
       transaction: newTxn
     });
   } catch (error) {
-    console.error("Groq SMS Parsing Error:", error);
+    console.error("SMS Parsing Error:", error);
     res.status(500).json({
       success: false,
-      message: "AI categorization failed."
+      message: "AI categorization failed: " + (error.message || "Unknown error")
     });
   }
 });
@@ -237,19 +286,12 @@ Format for goal:
 Format for general questions:
 {"action": "chat", "reply": ""}`;
 
-    const groqResponse = await groq.chat.completions.create({
-      messages: [{ role: "user", content: routerPrompt }],
-      model: "llama-3.1-8b-instant",
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-    });
-
-    const aiCommand = JSON.parse(groqResponse.choices[0].message.content);
+    const aiCommand = await getStructuredAiJson(routerPrompt);
 
     if (aiCommand.action === 'addExpenses') {
       const savedTxns = [];
 
-      for (let exp of aiCommand.expenses) {
+      for (let exp of (aiCommand.expenses || [])) {
         const newTxn = new Transaction({
           amount: -Math.abs(exp.amount),
           merchant: exp.merchant || 'Unknown',
@@ -325,7 +367,7 @@ Answer the user's question directly and conversationally. If they ask about curr
     console.error("Chat Router Error:", error);
     res.status(500).json({
       success: false,
-      message: "AI encountered an error. Please try again."
+      message: "AI encountered an error: " + (error.message || "Please try again.")
     });
   }
 });
@@ -549,14 +591,40 @@ app.get('/api/score', async (req, res) => {
 //                    DATABASE & SERVER START
 // ══════════════════════════════════════════════════════════════════
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('MongoDB connected successfully');
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:');
-    console.error(err);
-  });
+async function connectToDatabase() {
+  const primaryUri = process.env.MONGO_URI;
+  const localUri = 'mongodb://127.0.0.1:27017/financeBuddy';
+
+  if (primaryUri) {
+    try {
+      console.log('Connecting to primary MongoDB URI...');
+      await mongoose.connect(primaryUri, { serverSelectionTimeoutMS: 5000 });
+      console.log('Connected to primary MongoDB successfully');
+      return;
+    } catch (err) {
+      console.warn('Could not connect to primary MONGO_URI (' + err.message + ')');
+      console.log('Attempting local MongoDB connection (' + localUri + ')...');
+    }
+  }
+
+  try {
+    await mongoose.connect(localUri, { serverSelectionTimeoutMS: 3000 });
+    console.log('Connected to local MongoDB successfully');
+  } catch (err) {
+    console.error('Local MongoDB connection failed (' + err.message + ')');
+    console.warn('\n--------------------------------------------------------------');
+    console.warn(' NOTE: Web server is active at http://localhost:' + PORT);
+    console.warn(' Database features require MongoDB. To start MongoDB:');
+    console.warn('   - Run "start-mongo.bat" (or "npm run mongo") in this folder');
+    console.warn('   - Or run "net start MongoDB" in an Administrator prompt');
+    console.warn('   - Or update MONGO_URI in .env with a valid MongoDB URI');
+    console.warn('--------------------------------------------------------------\n');
+  }
+}
+
+app.listen(PORT, () => {
+  console.log(`\n==================================================`);
+  console.log(` AI Finance Buddy server running at http://localhost:${PORT}`);
+  console.log(`==================================================\n`);
+  connectToDatabase();
+});
